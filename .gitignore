@@ -8,9 +8,13 @@ functions/.runtimeconfig.json
 service-account*.json
 firebase-debug.log
 ui-debug.log
+firestore-debug.log
+*.log
 
 # Build and dependency outputs
 .gradle/
+.kotlin/
+dist/
 **/build/
 functions/node_modules/
 functions/lib/
