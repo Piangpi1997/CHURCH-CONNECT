@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Church Connect</string>
+    <string name="church_name">Christ Mission Fellowship</string>
+    <string name="church_location">Setapak, Kuala Lumpur</string>
+    <string name="tagline">One Church • One Community • One Mission</string>
+    <string name="demo_mode">DEMO MODE — sample data only; not connected to church systems</string>
+    <string name="welcome">Welcome</string>
+    <string name="home">Home</string>
+    <string name="apply">Membership</string>
+    <string name="calendar">Calendar</string>
+    <string name="news">News</string>
+    <string name="my_id">My ID</string>
+    <string name="admin">Admin</string>
+    <string name="sign_out">Sign out</string>
+</resources>

@@ -1,0 +1,18 @@
+{
+  "churchId": "cmf-setapak",
+  "name": "Christ Mission Fellowship Church",
+  "shortName": "CMF Church",
+  "location": "Setapak, Kuala Lumpur, Malaysia",
+  "timezone": "Asia/Kuala_Lumpur",
+  "currency": "MYR",
+  "supportedLanguages": ["en", "my", "ted"],
+  "memberNumberPrefix": "CMF",
+  "registrationFees": {
+    "individual": 2000,
+    "family": 5000,
+    "currency": "MYR",
+    "version": 1
+  },
+  "paymentMode": "MANUAL_OFFLINE",
+  "createdAt": "SERVER_TIMESTAMP"
+}

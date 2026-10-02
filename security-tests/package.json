@@ -1,0 +1,13 @@
+{
+  "name": "church-connect-security-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "cd .. && firebase emulators:exec --config firebase.json --project demo-church-connect --only firestore \"node --test security-tests/firestore.rules.test.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.2",
+    "firebase-tools": "^13.29.2"
+  }
+}

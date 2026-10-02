@@ -1,0 +1,38 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function userDoc() { return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
+    function sameChurch(churchId) { return signedIn() && userDoc().churchId == churchId; }
+    function staff(churchId) {
+      return sameChurch(churchId) && userDoc().role in ['SUPER_ADMIN', 'PASTOR', 'CHURCH_ADMIN', 'FINANCE_ADMIN'];
+    }
+    function validImage() {
+      return request.resource != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+    function validDocument() {
+      return request.resource != null
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType.matches('(application/pdf|image/(jpeg|png|webp))');
+    }
+
+    match /churches/{churchId}/members/{userId}/profile/{fileName} {
+      allow read: if signedIn() && (request.auth.uid == userId || staff(churchId));
+      allow create, update: if signedIn() && request.auth.uid == userId && sameChurch(churchId) && validImage();
+      allow delete: if signedIn() && request.auth.uid == userId && sameChurch(churchId);
+    }
+    match /churches/{churchId}/assets/{fileName} {
+      allow read: if sameChurch(churchId);
+      allow create, update: if staff(churchId) && validImage();
+      allow delete: if staff(churchId);
+    }
+    match /churches/{churchId}/documents/{fileName} {
+      allow read: if staff(churchId);
+      allow create, update: if staff(churchId) && validDocument();
+      allow delete: if staff(churchId);
+    }
+    match /{allPaths=**} { allow read, write: if false; }
+  }
+}

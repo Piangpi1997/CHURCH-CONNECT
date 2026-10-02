@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function myUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function sameChurch(churchId) { return signedIn() && myUser().churchId == churchId; }
+    function hasAnyRole(roles) { return signedIn() && myUser().role in roles; }
+    function churchStaff(churchId) {
+      return sameChurch(churchId) && hasAnyRole(['SUPER_ADMIN', 'PASTOR', 'CHURCH_ADMIN', 'FINANCE_ADMIN', 'DEPARTMENT_LEADER', 'MINISTRY_LEADER', 'TEAM_LEADER', 'USHER']);
+    }
+    function financeStaff(churchId) {
+      return sameChurch(churchId) && hasAnyRole(['SUPER_ADMIN', 'PASTOR', 'CHURCH_ADMIN', 'FINANCE_ADMIN']);
+    }
+    function membershipStaff(churchId) {
+      return sameChurch(churchId) && hasAnyRole(['SUPER_ADMIN', 'PASTOR', 'CHURCH_ADMIN']);
+    }
+
+    match /churches/{churchId} {
+      allow read: if true;
+      allow write: if false;
+      match /counters/{counterId} { allow read, write: if false; }
+    }
+
+    match /users/{userId} {
+      allow get: if signedIn() && (request.auth.uid == userId || membershipStaff(resource.data.churchId));
+      allow list: if false;
+      allow create, delete: if false;
+      allow update: if signedIn() && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName', 'preferredLanguage', 'updatedAt'])
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.churchId == resource.data.churchId
+        && request.resource.data.memberNumber == resource.data.memberNumber;
+      match /devices/{deviceId} { allow read, write: if false; }
+    }
+
+    match /members/{memberId} {
+      allow get: if signedIn() && (resource.data.userId == request.auth.uid || membershipStaff(resource.data.churchId));
+      allow list: if signedIn() && membershipStaff(resource.data.churchId);
+      allow write: if false;
+    }
+
+    match /households/{householdId} {
+      allow get, list: if signedIn() && (resource.data.primaryUserId == request.auth.uid || membershipStaff(resource.data.churchId));
+      allow write: if false;
+    }
+
+    match /registrations/{registrationId} {
+      allow get, list: if signedIn() && (resource.data.userId == request.auth.uid || membershipStaff(resource.data.churchId));
+      allow create, update, delete: if false;
+    }
+
+    match /payments/{paymentId} {
+      allow get, list: if signedIn() && (resource.data.userId == request.auth.uid || financeStaff(resource.data.churchId));
+      allow write: if false;
+    }
+
+    match /events/{eventId} {
+      allow get, list: if resource.data.published == true;
+      allow write: if false;
+    }
+
+    match /announcements/{announcementId} {
+      allow get, list: if resource.data.published == true;
+      allow write: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow get, list: if signedIn() && resource.data.recipientUserId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.recipientUserId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])
+        && request.resource.data.readAt == request.time;
+      allow create, delete: if false;
+    }
+
+    match /auditLogs/{auditId} {
+      allow get, list: if signedIn() && (hasAnyRole(['SUPER_ADMIN']) || membershipStaff(resource.data.churchId));
+      allow create, update, delete: if false;
+    }
+
+    match /qrVerifications/{tokenHash} { allow read, write: if false; }
+    match /registrationLocks/{userId} { allow read, write: if false; }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

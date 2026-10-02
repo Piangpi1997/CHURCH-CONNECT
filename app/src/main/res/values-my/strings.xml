@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Church Connect</string>
+    <string name="church_name">ခရစ်တော်၏ မစ်ရှင် မိတ်သဟာယအသင်းတော်</string>
+    <string name="church_location">Setapak၊ Kuala Lumpur</string>
+    <string name="tagline">အသင်းတော်တစ်ပါး • မိတ်သဟာယတစ်ခု • မစ်ရှင်တစ်ခု</string>
+    <string name="demo_mode">စမ်းသပ်မုဒ် — နမူနာဒေတာသာဖြစ်ပြီး အသင်းတော်စနစ်နှင့် မချိတ်ဆက်ထားပါ</string>
+    <string name="welcome">ကြိုဆိုပါသည်</string>
+    <string name="home">ပင်မ</string>
+    <string name="apply">အသင်းဝင်ခြင်း</string>
+    <string name="calendar">ပြက္ခဒိန်</string>
+    <string name="news">သတင်း</string>
+    <string name="my_id">ကျွန်ုပ်၏ ID</string>
+    <string name="admin">စီမံခန့်ခွဲသူ</string>
+    <string name="sign_out">ထွက်ရန်</string>
+</resources>
