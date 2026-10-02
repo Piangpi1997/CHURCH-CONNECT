@@ -166,6 +166,8 @@ export const createRegistration = onCall({ region }, async (request) => {
   return { registrationId: registrationRef.id, paymentId: paymentRef.id, amount: fee.amount, currency: fee.currency, feeType: fee.feeType, paymentMode: "MANUAL_OFFLINE" };
 });
 
+// Manual offline transfer is the only enabled method. A future online provider
+// belongs behind PaymentService; a submitted reference must never mark a payment PAID.
 export const submitPaymentReference = onCall({ region }, async (request) => {
   const uid = authUid(request);
   const reference = invalidInput(() => normalizeReference(request.data?.paymentReference));

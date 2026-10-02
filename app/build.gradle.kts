@@ -11,6 +11,17 @@ if (file("google-services.json").exists()) {
 
 val configuredChurchId = providers.gradleProperty("CHURCH_ID").orElse("cmf-setapak").get()
 val useFirebaseEmulators = providers.gradleProperty("USE_FIREBASE_EMULATORS").map(String::toBoolean).getOrElse(false)
+val releaseStoreFile = providers.environmentVariable("CHURCH_RELEASE_STORE_FILE").orNull?.takeIf(String::isNotBlank)
+val releaseStorePassword = providers.environmentVariable("CHURCH_RELEASE_STORE_PASSWORD").orNull?.takeIf(String::isNotBlank)
+val releaseKeyAlias = providers.environmentVariable("CHURCH_RELEASE_KEY_ALIAS").orNull?.takeIf(String::isNotBlank)
+val releaseKeyPassword = providers.environmentVariable("CHURCH_RELEASE_KEY_PASSWORD").orNull?.takeIf(String::isNotBlank)
+val releaseSigningValues = listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
+if (releaseSigningValues.any { it != null } && releaseSigningValues.any { it == null }) {
+    throw GradleException("Release signing requires CHURCH_RELEASE_STORE_FILE, CHURCH_RELEASE_STORE_PASSWORD, CHURCH_RELEASE_KEY_ALIAS, and CHURCH_RELEASE_KEY_PASSWORD.")
+}
+if (releaseStoreFile != null && !file(releaseStoreFile).isFile) {
+    throw GradleException("CHURCH_RELEASE_STORE_FILE must point to an existing keystore outside the source repository.")
+}
 
 android {
     namespace = "org.cmf.churchconnect"
@@ -29,6 +40,14 @@ android {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (releaseStoreFile != null) {
+                signingConfig = signingConfigs.create("churchRelease") {
+                    storeFile = file(releaseStoreFile)
+                    storePassword = releaseStorePassword
+                    keyAlias = releaseKeyAlias
+                    keyPassword = releaseKeyPassword
+                }
+            }
         }
     }
     buildFeatures { compose = true; buildConfig = true }

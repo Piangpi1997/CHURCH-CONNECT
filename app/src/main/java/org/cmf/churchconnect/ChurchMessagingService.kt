@@ -26,14 +26,15 @@ class ChurchMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val localized = AppLocale.wrap(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Church updates", NotificationManager.IMPORTANCE_DEFAULT))
+            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, localized.getString(R.string.church_updates), NotificationManager.IMPORTANCE_DEFAULT))
         }
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(message.notification?.title ?: "Church Connect")
-            .setContentText(message.notification?.body ?: "You have a new church update.")
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message.notification?.body ?: "You have a new church update."))
+            .setContentTitle(message.notification?.title ?: localized.getString(R.string.app_name))
+            .setContentText(message.notification?.body ?: localized.getString(R.string.new_updates))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message.notification?.body ?: localized.getString(R.string.new_updates)))
             .setAutoCancel(true)
             .build()
         val notificationId = message.data["notificationId"]?.takeIf { it.isNotBlank() }

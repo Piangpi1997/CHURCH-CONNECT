@@ -3,6 +3,7 @@ package org.cmf.churchconnect
 import android.os.Bundle
 import android.os.Build
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,6 +25,10 @@ class MainActivity : ComponentActivity() {
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) churchViewModel?.enablePushNotifications()
     }
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val firebase = FirebaseApp.initializeApp(applicationContext)
@@ -32,14 +37,22 @@ class MainActivity : ComponentActivity() {
         setContent {
             val vm: ChurchViewModel = viewModel(factory = object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T = ChurchViewModel(repository) as T
+                override fun <T : ViewModel> create(modelClass: Class<T>): T = ChurchViewModel(repository, application) as T
             })
             churchViewModel = vm
-            ChurchConnectApp(vm) {
+            ChurchConnectApp(
+                vm = vm,
+                onEnablePush = {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else vm.enablePushNotifications()
-            }
+                },
+                onLanguageChanged = { tag ->
+                    AppLocale.save(this, tag)
+                    vm.dismissMessage()
+                    recreate()
+                }
+            )
         }
     }
 }

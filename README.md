@@ -1,41 +1,37 @@
 # CMF Church App
 
-Native Android application for Christ Mission Fellowship Church (CMF), Setapak, Kuala Lumpur. The current implementation combines Jetpack Compose, Firebase Authentication/Firestore/Cloud Functions/Cloud Storage/FCM, server-owned membership workflows, and an explicitly local-only demo mode. The launcher name **CMF CHURCH APP** and the existing premium launcher artwork are preserved.
+Native Android application for Christ Mission Fellowship Church (CMF), Setapak, Kuala Lumpur. The current implementation combines Jetpack Compose, Firebase Authentication/Firestore/Cloud Functions/Cloud Storage/FCM, server-owned membership workflows, and an explicitly local-only demo mode. The launcher name **CMF CHURCH APP** and existing premium launcher artwork are preserved.
 
 ## Build and preview
 
 Requirements: JDK 17+, Android SDK 35, and internet access for first-time dependency downloads.
 
 ```bash
-./gradlew :app:testDebugUnitTest :app:assembleDebug
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintRelease
 ```
 
-The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. Without `app/google-services.json`, the app uses an in-memory local preview; its records are not sent to the church and no money moves. Firebase-backed sign-in requires the church's real Firebase configuration. Emulator/device UI tests require an attached Android emulator or device.
+The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. If no owner-provided release signing environment is configured, the release variant is unsigned and only suitable for build validation. Without `app/google-services.json`, the app uses an in-memory local preview; records are not sent to the church and no money moves. Firebase-backed sign-in requires the church's real Firebase configuration. Android UI/device tests require an attached emulator or device.
 
-## Firebase and production setup
+## Firebase and payment
 
-Start with [Environment and Deployment](docs/ENVIRONMENT_AND_DEPLOYMENT.md), [Firebase Setup](docs/FIREBASE_SETUP.md), [Admin and Payment Setup](docs/ADMIN_AND_PAYMENT_SETUP.md), [Database Collections and Indexes](docs/DATABASE_COLLECTIONS.md), [Security Model](docs/SECURITY_MODEL.md), and [Test and Release Guide](docs/TEST_AND_RELEASE.md). The church project ID, Firebase configuration, verified first-admin UID, Play Integrity/App Check console registration, payment-provider contract, and production signing key were not supplied for this task. Never replace them with example or fabricated credentials.
+Start with [Firebase production setup](docs/FIREBASE_PRODUCTION_SETUP.md), [guarded initial-admin setup](docs/INITIAL_ADMIN_SETUP.md), [App Check / Play Integrity](docs/APP_CHECK_SETUP.md), [admin and payment setup](docs/ADMIN_AND_PAYMENT_SETUP.md), and [payment provider status](docs/PAYMENT_PROVIDER_STATUS.md). The church project ID, real Firebase configuration, verified first-admin UID, App Check Console enforcement, online payment provider, and production signing key were not supplied. Never replace them with examples or fabricated credentials.
 
-Registration fees are server-calculated from `churches/{churchId}.registrationFees` and stored with each payment as an immutable snapshot. The default values in the example configuration are RM20 individual and RM50 family, in integer minor units. The only implemented payment path is **manual offline transfer reference + finance verification**; online payment, gateway callbacks, refunds, and automated reconciliation are **not integrated**.
+Registration fees are server-calculated from `churches/{churchId}.registrationFees` and saved as an immutable snapshot. Sample amounts are RM20 individual and RM50 family, but church leadership must approve actual fees. The only supported payment path is **manual offline transfer reference plus finance verification**. Online checkout, gateway callbacks, refunds, and automated reconciliation are **not integrated**.
+
+## Localization
+
+The app-owned interface has English and Myanmar resources, a persisted language selector, and a System default option. Tedim is listed as **English until reviewed**; no Tedim translation is claimed. See the [localization guide](docs/LOCALIZATION.md) for review and resource parity checks.
 
 ## Automated checks
 
 ```bash
-# Android unit tests and debug APK
-./gradlew :app:testDebugUnitTest :app:assembleDebug
-
-# Backend unit tests and type-check/build
-(cd functions && npm ci && npm test && npm run build)
-
-# Auth + Firestore + Functions Emulator integration tests
-(cd functions && npm run test:integration)
-
-# Firestore + Storage Emulator security tests
-(cd security-tests && npm ci && npm test)
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintRelease
+(cd functions && npm test && npm run build && npm run test:integration)
+(cd security-tests && npm test)
 ```
 
-The emulator integration test covers server-calculated fees, duplicate registration/reference/submission/review protection, same-church roles, finance verification, concurrent member-number assignment, family records, explicit rejection reasons, and secure QR issuance/rotation. Security tests cover client-write denial, private-data isolation, role escalation, audit logs, QR/lock opacity, announcements/events, and Storage paths/MIME types.
+The Firebase Emulator suites use only demo project ID `demo-church-connect`; they do not contact production. The [Android E2E](docs/ANDROID_E2E_CHECKLIST.md) and [live FCM](docs/LIVE_FCM_CHECKLIST.md) checklists require a real test device and configured non-production Firebase project.
 
-## Current completion boundary
+## Phase 1 deployment and release gates
 
-The server-side critical individual/family flows and emulator rule suites are validated. The optimized release variant builds but is **unsigned**. The app has no live Firebase environment in this workspace, the manual transfer process is not an online payment integration, and full Tedim/Burmese Compose localization, live FCM delivery, and Android UI E2E remain incomplete. See [the Phase 1 audit](docs/PHASE1_FINAL_REPORT.md) for exact PASS/PARTIAL/CONFIGURATION REQUIRED statuses and blockers.
+See the [deployment guide](docs/DEPLOYMENT_GUIDE.md), [secure release signing guide](docs/RELEASE_SIGNING.md), [Firebase setup](docs/FIREBASE_SETUP.md), [security model](docs/SECURITY_MODEL.md), [test and release guide](docs/TEST_AND_RELEASE.md), and [Phase 1 readiness report](docs/PHASE1_FINAL_REPORT.md). Production readiness must remain **NOT READY** until the owner-controlled Firebase/App Check setup, signing, required church-language review, and device/FCM validation are complete or explicitly accepted for a limited pilot.
