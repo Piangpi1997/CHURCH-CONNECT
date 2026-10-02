@@ -1,16 +1,17 @@
 # CMF Church App Build Status
 
-The native Android project now has a resource-backed English/Myanmar interface, persisted app-language selection, Android 13+ per-app language synchronization, Firebase-backed Phase 1 workflows, and an explicitly local-only demo path. Tedim is an English fallback pending church review. The app title **CMF CHURCH APP** and existing premium launcher artwork are unchanged.
+The native Android project has a resource-backed English/Myanmar interface, persisted app-language selection, Android 13+ per-app language synchronization, Firebase-backed Phase 1 workflows, an explicitly local-only demo path, and a shared light/dark Glass UI. Tedim is an English fallback pending church review. The app title **CMF CHURCH APP** and existing premium launcher artwork are unchanged. See [Glass UI implementation](GLASS_UI_IMPLEMENTATION.md).
 
 ## Latest verification
 
-- Android `:app:testDebugUnitTest`: **10/10 passed**; debug and optimized release APK variants assembled; `:app:lintRelease` passed.
+- Android `:app:testDebugUnitTest`: **10/10 passed**; `:app:assembleDebug`, `:app:assembleRelease`, and `:app:lintRelease` passed. The release APK is unsigned.
 - Cloud Functions unit tests: **7/7 passed**; strict TypeScript build passed.
 - Functions Emulator integration flows: **2/2 passed**.
 - Firestore and Storage Emulator rules/security: **13/13 passed** (11 Firestore, 2 Storage).
-- Total: **32 passed, 0 failed, 0 skipped.** Emulator-only validation does not prove production Firebase/App Check, live FCM, or Android device behavior.
+- Total: **32 passed, 0 failed, 0 skipped.** The Firebase Emulator runs used only `demo-church-connect`; they do not prove production Firebase/App Check or live FCM behavior. No Android emulator/device was attached, so runtime screenshots, TalkBack, large-font layout, and physical QR scanning were not checked.
+- A static spot check of selected base-palette text/surface pairs measured 5.59:1 or higher; this is not a rendered-screen contrast certification. Localized resources were unchanged and no new user-visible strings were added.
 
-The Functions Emulator output warned that the project targets Node 20 while this test host ran Node 24 and that the `firebase-functions` dependency is outdated. Tests still passed. Use the supported Node 20 runtime for deployment and review dependency upgrades separately.
+The Functions Emulator output warned that the project targets Node 20 while this test host ran Node 24 and that the `firebase-functions` dependency is outdated. `npm ci` also reported dependency audit advisories (9 moderate in Functions and 19 in the security-test dependency tree, including 1 critical); this UI-only change did not alter dependency manifests. Tests still passed. Use the supported Node 20 runtime for deployment and review dependency upgrades separately.
 
 ## Artifacts and product boundary
 

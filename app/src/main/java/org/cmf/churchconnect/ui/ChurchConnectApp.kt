@@ -3,6 +3,7 @@ package org.cmf.churchconnect.ui
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -10,7 +11,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -21,12 +21,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.cmf.churchconnect.R
@@ -38,20 +41,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val Ink = Color(0xFF17191C)
-private val Slate = Color(0xFF626A73)
-private val Paper = Color(0xFFF4F5F6)
-private val Mint = Color(0xFFDCEFE7)
-
 @Composable
  fun ChurchConnectApp(vm: ChurchViewModel, onEnablePush: () -> Unit, onLanguageChanged: (String) -> Unit = {}) {
     val state = vm.state
-    val dark = isSystemInDarkTheme()
-    val scheme = if (dark) darkColorScheme(primary = Color(0xFFC5E8D7), background = Color(0xFF121416), surface = Color(0xFF1C1F22))
-    else lightColorScheme(primary = Ink, onPrimary = Color.White, background = Paper, surface = Color.White, secondary = Color(0xFF60766C), outline = Color(0xFFE4E7E9))
-    MaterialTheme(colorScheme = scheme, typography = Typography(), shapes = Shapes()) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            if (state.user == null) AuthScreen(state, vm, onLanguageChanged) else MainShell(state, vm, onEnablePush, onLanguageChanged)
+    GlassTheme {
+        GlassBackdrop {
+            Surface(Modifier.fillMaxSize(), color = Color.Transparent, contentColor = MaterialTheme.colorScheme.onBackground) {
+                if (state.user == null) AuthScreen(state, vm, onLanguageChanged) else MainShell(state, vm, onEnablePush, onLanguageChanged)
+            }
         }
     }
 }
@@ -68,22 +65,22 @@ private fun AuthScreen(state: AppState, vm: ChurchViewModel, onLanguageChanged: 
                 BrandMark()
                 Spacer(Modifier.height(18.dp))
                 Text(stringResource(R.string.app_name), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                Text("${stringResource(R.string.church_name)} · ${stringResource(R.string.church_location)}", color = Slate, fontSize = 14.sp)
+                Text("${stringResource(R.string.church_name)} · ${stringResource(R.string.church_location)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.tagline), color = Slate, fontSize = 13.sp)
+                Text(stringResource(R.string.tagline), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                 Spacer(Modifier.height(28.dp))
             }
             item { LanguageSelector(onLanguageChanged) }
             item {
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                GlassCard(Modifier.fillMaxWidth().widthIn(max = GlassTokens.authMaxWidth), shape = RoundedCornerShape(28.dp)) {
+                    Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(GlassTokens.spacingMedium)) {
                         Text(if (creating) stringResource(R.string.auth_create_title) else stringResource(R.string.auth_welcome_title), fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
-                        Text(if (creating) stringResource(R.string.auth_create_subtitle) else stringResource(R.string.auth_welcome_subtitle), color = Slate, fontSize = 14.sp)
+                        Text(if (creating) stringResource(R.string.auth_create_subtitle) else stringResource(R.string.auth_welcome_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                         if (creating) OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.full_name)) }, singleLine = true)
                         OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.email)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true)
                         OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.password_requirement)) }, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), singleLine = true)
                         if (state.error != null) InlineNotice(state.error, isError = true)
-                        Button(onClick = { vm.signIn(email, password, if (creating) name else null) }, Modifier.fillMaxWidth().height(52.dp), enabled = !state.loading, shape = RoundedCornerShape(16.dp)) {
+                        GlassButton(onClick = { vm.signIn(email, password, if (creating) name else null) }, Modifier.fillMaxWidth().height(52.dp), enabled = !state.loading) {
                             if (state.loading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Text(if (creating) stringResource(R.string.create_account) else stringResource(R.string.sign_in))
                         }
                         if (!creating && !state.isDemo) TextButton(onClick = { vm.sendPasswordReset(email) }, Modifier.align(Alignment.CenterHorizontally), enabled = !state.loading) { Text(stringResource(R.string.forgot_password)) }
@@ -91,19 +88,19 @@ private fun AuthScreen(state: AppState, vm: ChurchViewModel, onLanguageChanged: 
                         TextButton(onClick = { creating = !creating; vm.dismissMessage() }, Modifier.align(Alignment.CenterHorizontally)) { Text(if (creating) stringResource(R.string.account_exists) else stringResource(R.string.account_new)) }
                         if (state.isDemo) {
                             HorizontalDivider()
-                            Text(stringResource(R.string.local_preview), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Slate, letterSpacing = 1.3.sp)
-                            Text(stringResource(R.string.demo_explanation), fontSize = 12.sp, color = Slate)
+                            Text(stringResource(R.string.local_preview), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 1.3.sp)
+                            Text(stringResource(R.string.demo_explanation), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { vm.demoSignIn(false) }, Modifier.weight(1f), enabled = !state.loading) { Text(stringResource(R.string.member_demo)) }
                                 OutlinedButton(onClick = { vm.demoSignIn(true) }, Modifier.weight(1f), enabled = !state.loading) { Text(stringResource(R.string.admin_demo)) }
                             }
                         } else {
-                            Text(stringResource(R.string.accounts_managed), fontSize = 12.sp, color = Slate)
+                            Text(stringResource(R.string.accounts_managed), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
                 Spacer(Modifier.height(18.dp))
-                Text(stringResource(R.string.church_full_name), fontSize = 10.sp, letterSpacing = 1.1.sp, color = Slate)
+                Text(stringResource(R.string.church_full_name), fontSize = 10.sp, letterSpacing = 1.1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -115,21 +112,30 @@ private fun MainShell(state: AppState, vm: ChurchViewModel, onEnablePush: () -> 
     val user = state.user ?: return
     val actualTab = if (state.tab in setOf("id", "notifications", "admin")) "more" else state.tab
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Column { Text(stringResource(R.string.app_name), fontWeight = FontWeight.SemiBold, fontSize = 18.sp); Text(stringResource(R.string.church_name), fontSize = 11.sp, color = Slate) } },
-                actions = { IconButton(onClick = { vm.refresh() }, enabled = !state.loading) { Icon(Icons.Outlined.Refresh, contentDescription = stringResource(R.string.refresh)) }; IconButton(onClick = { vm.signOut() }) { Icon(Icons.Outlined.Logout, contentDescription = stringResource(R.string.sign_out)) } }
+                navigationIcon = { Box(Modifier.padding(start = 10.dp)) { BrandMark(38.dp) } },
+                title = { Column { Text(stringResource(R.string.app_name), fontWeight = FontWeight.SemiBold, fontSize = 18.sp); Text(stringResource(R.string.church_name), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) } },
+                actions = { GlassIconButton(onClick = { vm.refresh() }, enabled = !state.loading) { Icon(Icons.Outlined.Refresh, contentDescription = stringResource(R.string.refresh)) }; GlassIconButton(onClick = { vm.signOut() }) { Icon(Icons.Outlined.Logout, contentDescription = stringResource(R.string.sign_out)) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))
             )
         },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .border(GlassTokens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), RoundedCornerShape(26.dp)),
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                tonalElevation = GlassTokens.elevationCard
+            ) {
                 listOf(Triple("home", stringResource(R.string.home), Icons.Outlined.Home), Triple("membership", stringResource(R.string.apply), Icons.Outlined.AssignmentInd), Triple("calendar", stringResource(R.string.calendar), Icons.Outlined.Event), Triple("news", stringResource(R.string.news), Icons.Outlined.Campaign), Triple("more", stringResource(R.string.more), Icons.Outlined.MoreHoriz)).forEach { (tab, title, icon) ->
-                    NavigationBarItem(selected = actualTab == tab, onClick = { vm.select(tab) }, icon = { Icon(icon, contentDescription = title) }, label = { Text(title) })
+                    NavigationBarItem(selected = actualTab == tab, onClick = { vm.select(tab) }, icon = { Icon(icon, contentDescription = title) }, label = { Text(title) }, colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primaryContainer, selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant))
                 }
             }
         }
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
+        Column(Modifier.fillMaxSize().padding(padding), horizontalAlignment = Alignment.CenterHorizontally) {
             if (state.isDemo) DemoBanner()
             if (state.message != null) InlineNotice(state.message, isError = false, onDismiss = vm::dismissMessage)
             if (state.error != null) InlineNotice(state.error, isError = true, onDismiss = vm::dismissMessage)
@@ -151,15 +157,19 @@ private fun MainShell(state: AppState, vm: ChurchViewModel, onEnablePush: () -> 
 @Composable
 private fun HomeScreen(state: AppState, vm: ChurchViewModel) {
     val user = state.user ?: return
-    LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().widthIn(max = GlassTokens.contentMaxWidth), contentPadding = PaddingValues(GlassTokens.screenPadding), verticalArrangement = Arrangement.spacedBy(GlassTokens.spacingLarge)) {
         item {
-            Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = if (MaterialTheme.colorScheme.background == Paper) Ink else MaterialTheme.colorScheme.surface)) {
+            GlassCard(shape = RoundedCornerShape(28.dp), emphasized = true) {
                 Column(Modifier.fillMaxWidth().padding(22.dp)) {
-                    Text(stringResource(R.string.home_welcome), color = Color(0xFFC5E8D7), fontSize = 11.sp, letterSpacing = 1.7.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        BrandMark(42.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(stringResource(R.string.home_welcome), color = GlassTokens.heroHighlight, fontSize = 11.sp, letterSpacing = 1.7.sp, fontWeight = FontWeight.Bold)
+                    }
                     Spacer(Modifier.height(10.dp))
                     Text(stringResource(R.string.hello_user, user.fullName.substringBefore(' ')), fontSize = 27.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     Spacer(Modifier.height(5.dp))
-                    Text(stringResource(R.string.home_tagline), color = Color(0xFFD1D5D8), fontSize = 14.sp)
+                    Text(stringResource(R.string.home_tagline), color = GlassTokens.heroSecondaryText, fontSize = 14.sp)
                     Spacer(Modifier.height(18.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         FilledTonalButton(onClick = { vm.select("membership") }) { Icon(Icons.Outlined.PersonAddAlt, null, Modifier.size(17.dp)); Spacer(Modifier.width(5.dp)); Text(stringResource(R.string.apply)) }
@@ -181,7 +191,7 @@ private fun HomeScreen(state: AppState, vm: ChurchViewModel) {
 @Composable
 private fun MembershipScreen(state: AppState, vm: ChurchViewModel) {
     val existing = state.registration
-    LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().widthIn(max = GlassTokens.contentMaxWidth), contentPadding = PaddingValues(GlassTokens.screenPadding), verticalArrangement = Arrangement.spacedBy(GlassTokens.spacingMedium)) {
         item { PageHeading(stringResource(R.string.apply), stringResource(R.string.apply_join_church)) }
         if (existing == null || existing.status in setOf("APPROVED", "REJECTED")) {
             item { NewApplicationForm(state.config, state.loading, vm) }
@@ -218,16 +228,16 @@ private fun NewApplicationForm(config: ChurchConfig?, loading: Boolean, vm: Chur
     var address by remember { mutableStateOf("") }
     var family by remember { mutableStateOf("") }
     var consent by remember { mutableStateOf(false) }
-    Card(shape = RoundedCornerShape(24.dp)) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    GlassCard(shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(GlassTokens.spacingCompact)) {
             Text(stringResource(R.string.new_application), fontWeight = FontWeight.SemiBold, fontSize = 19.sp)
-            Text(stringResource(R.string.choose_application_type), color = Slate, fontSize = 13.sp)
+            Text(stringResource(R.string.choose_application_type), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(type == "INDIVIDUAL", { type = "INDIVIDUAL" }, label = { Text(stringResource(R.string.individual)) })
                 FilterChip(type == "FAMILY", { type = "FAMILY" }, label = { Text(stringResource(R.string.family)) })
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(R.string.registration_fee), color = Slate)
+                Text(stringResource(R.string.registration_fee), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(config?.formattedFee(if (type == "FAMILY") config.familyFee else config.individualFee) ?: "Loading…", fontWeight = FontWeight.SemiBold)
             }
             OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.applicant_full_name)) }, singleLine = true)
@@ -236,14 +246,14 @@ private fun NewApplicationForm(config: ChurchConfig?, loading: Boolean, vm: Chur
             if (type == "FAMILY") OutlinedTextField(family, { family = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.family_members_hint)) }, minLines = 3)
             Row(verticalAlignment = Alignment.Top) {
                 Checkbox(checked = consent, onCheckedChange = { consent = it })
-                Text(stringResource(R.string.consent_text), Modifier.padding(top = 11.dp), fontSize = 12.sp, color = Slate)
+                Text(stringResource(R.string.consent_text), Modifier.padding(top = 11.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Button(onClick = {
                 vm.createRegistration(RegistrationDraft(type, name, phone, address, family.lines().map(String::trim).filter(String::isNotBlank), consent))
             }, Modifier.fillMaxWidth().height(50.dp), enabled = !loading && config != null, shape = RoundedCornerShape(15.dp)) {
                 Text(if (loading) stringResource(R.string.saving) else stringResource(R.string.create_application))
             }
-            Text(stringResource(R.string.private_staff_only), fontSize = 11.sp, color = Slate)
+            Text(stringResource(R.string.private_staff_only), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -251,36 +261,36 @@ private fun NewApplicationForm(config: ChurchConfig?, loading: Boolean, vm: Chur
 @Composable
 private fun PaymentReferenceCard(app: MemberApplication, demo: Boolean, vm: ChurchViewModel) {
     var reference by remember(app.id) { mutableStateOf("") }
-    Card(shape = RoundedCornerShape(24.dp)) {
+    GlassCard(shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
             Text(stringResource(R.string.payment_verification), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-            Text(stringResource(R.string.fee_payment_line, app.currency, app.amount / 100, app.amount % 100, stringResource(if (demo) R.string.payment_flow_demo else R.string.payment_flow_offline)), color = Slate)
+            Text(stringResource(R.string.fee_payment_line, app.currency, app.amount / 100, app.amount % 100, stringResource(if (demo) R.string.payment_flow_demo else R.string.payment_flow_offline)), color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (demo) Text(stringResource(R.string.demo_payment_no_money), color = Color(0xFF8A5A00), fontSize = 12.sp)
             OutlinedTextField(reference, { reference = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.transfer_reference)) }, singleLine = true)
             Button(onClick = { vm.submitPaymentReference(reference) }, Modifier.fillMaxWidth(), enabled = reference.trim().length >= 4 && !vm.state.loading) { Text(stringResource(R.string.send_for_verification)) }
-            Text(stringResource(R.string.payment_reference_disclaimer), fontSize = 12.sp, color = Slate)
+            Text(stringResource(R.string.payment_reference_disclaimer), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
 private fun ApplicationStatusCard(app: MemberApplication, config: ChurchConfig?) {
-    Card(shape = RoundedCornerShape(22.dp)) {
+    GlassCard(shape = RoundedCornerShape(22.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.app_status), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
                 StatusPill(localizedApplicationStatus(app.status))
             }
-            Text(stringResource(R.string.application_type_applicant, localizedType(app.type), app.applicantName), color = Slate)
+            Text(stringResource(R.string.application_type_applicant, localizedType(app.type), app.applicantName), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(stringResource(R.string.fee_payment_line, app.currency, app.amount / 100, app.amount % 100, localizedPaymentStatus(app.paymentStatus)), fontSize = 13.sp)
-            Text(stringResource(R.string.application_number, app.id.takeLast(8).uppercase()), fontSize = 11.sp, color = Slate)
+            Text(stringResource(R.string.application_number, app.id.takeLast(8).uppercase()), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
 private fun CalendarScreen(state: AppState) {
-    LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().widthIn(max = GlassTokens.contentMaxWidth), contentPadding = PaddingValues(GlassTokens.screenPadding), verticalArrangement = Arrangement.spacedBy(GlassTokens.spacingCompact)) {
         item { PageHeading(stringResource(R.string.church_calendar), stringResource(R.string.gather_grow_serve)) }
         if (state.events.isEmpty()) item { EmptyCard(stringResource(R.string.no_events), stringResource(R.string.new_events)) }
         items(state.events, key = { it.id }) { EventCard(it) }
@@ -289,19 +299,19 @@ private fun CalendarScreen(state: AppState) {
 
 @Composable
 private fun EventCard(event: ChurchEvent) {
-    Card(shape = RoundedCornerShape(22.dp)) {
+    GlassCard(shape = RoundedCornerShape(22.dp)) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Top) {
-            Column(Modifier.width(55.dp).clip(RoundedCornerShape(15.dp)).background(Mint).padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.width(55.dp).clip(RoundedCornerShape(15.dp)).background(MaterialTheme.colorScheme.primaryContainer).padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 val date = Date(event.startsAt)
-                Text(SimpleDateFormat("MMM", Locale.getDefault()).format(date).uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Ink)
-                Text(SimpleDateFormat("d", Locale.getDefault()).format(date), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Ink)
+                Text(SimpleDateFormat("MMM", Locale.getDefault()).format(date).uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text(SimpleDateFormat("d", Locale.getDefault()).format(date), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(event.title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                Text(SimpleDateFormat("EEE, d MMM · h:mm a", Locale.getDefault()).format(Date(event.startsAt)), fontSize = 12.sp, color = Slate)
-                Text(event.description, fontSize = 13.sp, color = Slate)
-                Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.LocationOn, null, Modifier.size(14.dp), tint = Slate); Spacer(Modifier.width(4.dp)); Text(event.location, fontSize = 12.sp, color = Slate) }
+                Text(SimpleDateFormat("EEE, d MMM · h:mm a", Locale.getDefault()).format(Date(event.startsAt)), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(event.description, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.LocationOn, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(4.dp)); Text(event.location, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
     }
@@ -309,7 +319,7 @@ private fun EventCard(event: ChurchEvent) {
 
 @Composable
 private fun NewsScreen(state: AppState) {
-    LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().widthIn(max = GlassTokens.contentMaxWidth), contentPadding = PaddingValues(GlassTokens.screenPadding), verticalArrangement = Arrangement.spacedBy(GlassTokens.spacingCompact)) {
         item { PageHeading(stringResource(R.string.announcements), stringResource(R.string.church_updates)) }
         if (state.announcements.isEmpty()) item { EmptyCard(stringResource(R.string.no_announcements), stringResource(R.string.official_announcements)) }
         items(state.announcements, key = { it.id }) { AnnouncementCard(it) }
@@ -318,14 +328,14 @@ private fun NewsScreen(state: AppState) {
 
 @Composable
 private fun AnnouncementCard(item: Announcement) {
-    Card(shape = RoundedCornerShape(22.dp)) {
+    GlassCard(shape = RoundedCornerShape(22.dp)) {
         Column(Modifier.fillMaxWidth().padding(17.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(item.title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.weight(1f))
                 if (item.priority == "URGENT") StatusPill(stringResource(R.string.important))
             }
-            Text(item.body, color = Slate, fontSize = 14.sp)
-            Text(SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(item.publishedAt)), color = Slate, fontSize = 11.sp)
+            Text(item.body, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            Text(SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(item.publishedAt)), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
         }
     }
 }
@@ -333,23 +343,25 @@ private fun AnnouncementCard(item: Announcement) {
 @Composable
 private fun DigitalIdScreen(state: AppState, vm: ChurchViewModel) {
     val card = state.digitalId
-    LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    LazyColumn(Modifier.fillMaxWidth().widthIn(max = GlassTokens.contentMaxWidth), contentPadding = PaddingValues(GlassTokens.screenPadding), verticalArrangement = Arrangement.spacedBy(GlassTokens.spacingMedium), horizontalAlignment = Alignment.CenterHorizontally) {
         item { PageHeading(stringResource(R.string.digital_id_heading), stringResource(R.string.secure_membership_card)) }
         if (card == null) item { EmptyCard(stringResource(R.string.digital_id_unavailable), stringResource(R.string.id_after_approval)) }
         else item {
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = Ink)) {
+            GlassCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), emphasized = true) {
                 Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.church_brand), color = Color(0xFFC5E8D7), fontSize = 11.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold)
-                    Text(card.churchName, color = Color.White, fontSize = 12.sp)
+                    BrandMark(52.dp)
+                    Spacer(Modifier.height(10.dp))
+                    Text(stringResource(R.string.church_brand), color = GlassTokens.heroHighlight, fontSize = 11.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold)
+                    Text(card.churchName, color = GlassTokens.heroSecondaryText, fontSize = 12.sp)
                     Spacer(Modifier.height(20.dp))
                     QrImage(card.qrPayload, Modifier.size(188.dp).clip(RoundedCornerShape(18.dp)).background(Color.White).padding(10.dp))
                     Spacer(Modifier.height(15.dp))
                     Text(card.name, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    Text(card.number, color = Color(0xFFC5E8D7), fontSize = 15.sp, letterSpacing = 1.8.sp)
+                    Text(card.number, color = GlassTokens.heroHighlight, fontSize = 15.sp, letterSpacing = 1.8.sp)
                     Spacer(Modifier.height(6.dp))
-                    Text(stringResource(R.string.member_type, localizedType(card.membershipType)), color = Color(0xFFD1D5D8), fontSize = 13.sp)
+                    Text(stringResource(R.string.member_type, localizedType(card.membershipType)), color = GlassTokens.heroSecondaryText, fontSize = 13.sp)
                     Spacer(Modifier.height(18.dp))
-                    Text(stringResource(R.string.qr_privacy), color = Color(0xFFD1D5D8), fontSize = 12.sp)
+                    Text(stringResource(R.string.qr_privacy), color = GlassTokens.heroSecondaryText, fontSize = 12.sp)
                 }
             }
         }
@@ -373,15 +385,15 @@ private fun QrImage(payload: String, modifier: Modifier = Modifier) {
 @Composable
 private fun MoreScreen(state: AppState, onOpen: (String) -> Unit, onEnablePush: () -> Unit, onLanguageChanged: (String) -> Unit) {
     val user = state.user ?: return
-    LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().widthIn(max = GlassTokens.contentMaxWidth), contentPadding = PaddingValues(GlassTokens.screenPadding), verticalArrangement = Arrangement.spacedBy(GlassTokens.spacingCompact)) {
         item { PageHeading(stringResource(R.string.more), stringResource(R.string.account_tools_subtitle)) }
         item { LanguageSelector(onLanguageChanged) }
         item {
-            Card(shape = RoundedCornerShape(22.dp)) {
+            GlassCard(shape = RoundedCornerShape(22.dp)) {
                 Row(Modifier.fillMaxWidth().padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(46.dp).clip(CircleShape).background(Mint), Alignment.Center) { Icon(Icons.Outlined.Person, null, tint = Ink) }
+                    Box(Modifier.size(46.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), Alignment.Center) { Icon(Icons.Outlined.Person, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
                     Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) { Text(user.fullName, fontWeight = FontWeight.SemiBold); Text(user.email, fontSize = 12.sp, color = Slate) }
+                    Column(Modifier.weight(1f)) { Text(user.fullName, fontWeight = FontWeight.SemiBold); Text(user.email, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     StatusPill(localizedRole(user.role))
                 }
             }
@@ -389,10 +401,10 @@ private fun MoreScreen(state: AppState, onOpen: (String) -> Unit, onEnablePush: 
         item { MoreRow(Icons.Outlined.Badge, stringResource(R.string.digital_id_title), stringResource(R.string.member_number_and_qr)) { onOpen("id") } }
         item { MoreRow(Icons.Outlined.Notifications, stringResource(R.string.notifications), pluralStringResource(R.plurals.unread_notifications, state.notifications.count { !it.read }, state.notifications.count { !it.read })) { onOpen("notifications") } }
         if (!state.isDemo) item {
-            Card(shape = RoundedCornerShape(21.dp)) {
+            GlassCard(shape = RoundedCornerShape(21.dp)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.push_notifications), fontWeight = FontWeight.SemiBold)
-                    Text(stringResource(R.string.device_token_message), color = Slate, fontSize = 12.sp)
+                    Text(stringResource(R.string.device_token_message), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     OutlinedButton(onClick = onEnablePush, modifier = Modifier.fillMaxWidth(), enabled = !state.loading) { Icon(Icons.Outlined.Notifications, null); Spacer(Modifier.width(7.dp)); Text(stringResource(R.string.enable_device_notifications)) }
                 }
             }
@@ -404,16 +416,16 @@ private fun MoreScreen(state: AppState, onOpen: (String) -> Unit, onEnablePush: 
 
 @Composable
 private fun NotificationsScreen(state: AppState, vm: ChurchViewModel) {
-    LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().widthIn(max = GlassTokens.contentMaxWidth), contentPadding = PaddingValues(GlassTokens.screenPadding), verticalArrangement = Arrangement.spacedBy(GlassTokens.spacingCompact)) {
         item { PageHeading(stringResource(R.string.notifications), stringResource(R.string.notification_updates)) }
         if (state.notifications.isEmpty()) item { EmptyCard(stringResource(R.string.caught_up), stringResource(R.string.new_updates)) }
         items(state.notifications, key = { it.id }) { n ->
-            Card(shape = RoundedCornerShape(20.dp)) {
+            GlassCard(shape = RoundedCornerShape(20.dp)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) { if (!n.read) Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF4D8B6B))); Spacer(Modifier.width(8.dp)); Text(n.title, fontWeight = FontWeight.SemiBold) }
-                    Text(n.body, color = Slate, fontSize = 13.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) { if (!n.read) Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondary)); Spacer(Modifier.width(8.dp)); Text(n.title, fontWeight = FontWeight.SemiBold) }
+                    Text(n.body, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(SimpleDateFormat("d MMM · h:mm a", Locale.getDefault()).format(Date(n.createdAt)), fontSize = 11.sp, color = Slate)
+                        Text(SimpleDateFormat("d MMM · h:mm a", Locale.getDefault()).format(Date(n.createdAt)), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (!n.read) TextButton(onClick = { vm.markRead(n.id) }) { Text(stringResource(R.string.mark_read)) }
                     }
                 }
@@ -440,13 +452,13 @@ private fun AdminScreen(state: AppState, vm: ChurchViewModel) {
         confirmButton = { TextButton(onClick = { val id = rejectId ?: return@TextButton; if (reason.isNotBlank()) { vm.review(id, false, reason); rejectId = null; reason = "" } }) { Text(stringResource(R.string.reject)) } },
         dismissButton = { TextButton(onClick = { rejectId = null }) { Text(stringResource(R.string.cancel)) } }
     )
-    LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().widthIn(max = GlassTokens.contentMaxWidth), contentPadding = PaddingValues(GlassTokens.screenPadding), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         item { PageHeading(stringResource(R.string.admin_workspace), stringResource(R.string.authorized_admin_actions)) }
         item {
-            Card(shape = RoundedCornerShape(22.dp)) {
+            GlassCard(shape = RoundedCornerShape(22.dp)) {
                 Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(stringResource(R.string.qr_verification), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
-                    Text(stringResource(R.string.qr_verification_description), color = Slate, fontSize = 13.sp)
+                    Text(stringResource(R.string.qr_verification_description), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                     OutlinedTextField(qrText, { qrText = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.qr_token)) }, singleLine = true)
                     Button(onClick = { vm.verifyQr(qrText) }, modifier = Modifier.fillMaxWidth(), enabled = qrText.isNotBlank() && !state.loading) { Text(stringResource(R.string.verify_id)) }
                     state.verifiedQr?.let { result -> InlineNotice(if (result.valid) "${result.memberName} · ${result.memberNumber} · ${result.message}" else result.message, isError = !result.valid) }
@@ -486,21 +498,21 @@ private fun AdminScreen(state: AppState, vm: ChurchViewModel) {
 @Composable
 private fun AdminApplicationCard(app: MemberApplication, user: UserProfile, loading: Boolean, onBegin: () -> Unit, onVerifyPayment: () -> Unit, onApprove: () -> Unit, onReject: () -> Unit) {
     var detailsExpanded by remember(app.id) { mutableStateOf(false) }
-    Card(shape = RoundedCornerShape(22.dp)) {
+    GlassCard(shape = RoundedCornerShape(22.dp)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(app.applicantName, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                 StatusPill(localizedApplicationStatus(app.status))
             }
-            Text(stringResource(R.string.application_type_phone, localizedType(app.type), app.phone), color = Slate, fontSize = 13.sp)
+            Text(stringResource(R.string.application_type_phone, localizedType(app.type), app.phone), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             Text(stringResource(R.string.fee_payment_line, app.currency, app.amount / 100, app.amount % 100, localizedPaymentStatus(app.paymentStatus)), fontSize = 13.sp)
-            if (app.paymentReference != null) Text(stringResource(R.string.transfer_ref_value, app.paymentReference), fontSize = 12.sp, color = Slate)
-            if (app.rejectionReason != null) Text(stringResource(R.string.rejection_reason_value, app.rejectionReason), fontSize = 12.sp, color = Slate)
+            if (app.paymentReference != null) Text(stringResource(R.string.transfer_ref_value, app.paymentReference), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (app.rejectionReason != null) Text(stringResource(R.string.rejection_reason_value, app.rejectionReason), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = { detailsExpanded = !detailsExpanded }) { Text(if (detailsExpanded) stringResource(R.string.hide_details) else stringResource(R.string.application_details)) }
             if (detailsExpanded) {
-                if (app.phone.isNotBlank()) Text(stringResource(R.string.phone_value, app.phone), fontSize = 12.sp, color = Slate)
-                if (app.address.isNotBlank()) Text(stringResource(R.string.address_value, app.address), fontSize = 12.sp, color = Slate, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                if (app.familyMembers.isNotEmpty()) Text(stringResource(R.string.household_value, app.familyMembers.joinToString()), fontSize = 12.sp, color = Slate)
+                if (app.phone.isNotBlank()) Text(stringResource(R.string.phone_value, app.phone), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (app.address.isNotBlank()) Text(stringResource(R.string.address_value, app.address), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                if (app.familyMembers.isNotEmpty()) Text(stringResource(R.string.household_value, app.familyMembers.joinToString()), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             when {
                 user.canVerifyPayments && app.paymentStatus == "PROCESSING" -> Button(onClick = onVerifyPayment, Modifier.fillMaxWidth(), enabled = !loading) { Text(stringResource(R.string.verify_received_transfer)) }
@@ -509,9 +521,9 @@ private fun AdminApplicationCard(app: MemberApplication, user: UserProfile, load
                     OutlinedButton(onClick = onReject, Modifier.weight(1f), enabled = !loading) { Text(stringResource(R.string.reject)) }
                     Button(onClick = onApprove, Modifier.weight(1f), enabled = !loading && app.paymentStatus == "PAID") { Text(stringResource(R.string.approve)) }
                 }
-                app.paymentStatus == "PROCESSING" -> Text(stringResource(R.string.finance_verification_required), fontSize = 12.sp, color = Slate)
-                app.status == "PENDING_PAYMENT" -> Text(stringResource(R.string.waiting_transfer_reference), fontSize = 12.sp, color = Slate)
-                app.status == "PAYMENT_VERIFIED" -> Text(stringResource(R.string.fee_verified_message), fontSize = 12.sp, color = Slate)
+                app.paymentStatus == "PROCESSING" -> Text(stringResource(R.string.finance_verification_required), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                app.status == "PENDING_PAYMENT" -> Text(stringResource(R.string.waiting_transfer_reference), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                app.status == "PAYMENT_VERIFIED" -> Text(stringResource(R.string.fee_verified_message), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -521,7 +533,7 @@ private fun AdminApplicationCard(app: MemberApplication, user: UserProfile, load
 private fun PageHeading(title: String, subtitle: String) {
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(title, fontSize = 25.sp, fontWeight = FontWeight.Bold)
-        Text(subtitle, fontSize = 13.sp, color = Slate)
+        Text(subtitle, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -535,23 +547,23 @@ private fun SectionTitle(title: String, action: String? = null, onAction: (() ->
 
 @Composable
 private fun EmptyCard(title: String, detail: String) {
-    Card(shape = RoundedCornerShape(22.dp)) {
+    GlassCard(shape = RoundedCornerShape(22.dp)) {
         Column(Modifier.fillMaxWidth().padding(19.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, fontWeight = FontWeight.SemiBold)
-            Text(detail, color = Slate, fontSize = 13.sp)
+            Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         }
     }
 }
 
 @Composable
 private fun InfoCard(title: String, detail: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Card(shape = RoundedCornerShape(22.dp)) {
+    GlassCard(shape = RoundedCornerShape(22.dp)) {
         Row(Modifier.fillMaxWidth().padding(17.dp), verticalAlignment = Alignment.Top) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(12.dp))
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(title, fontWeight = FontWeight.SemiBold)
-                Text(detail, color = Slate, fontSize = 13.sp)
+                Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             }
         }
     }
@@ -559,10 +571,10 @@ private fun InfoCard(title: String, detail: String, icon: androidx.compose.ui.gr
 
 @Composable
 private fun ActionCard(title: String, detail: String, button: String, loading: Boolean, onClick: () -> Unit) {
-    Card(shape = RoundedCornerShape(22.dp)) {
+    GlassCard(shape = RoundedCornerShape(22.dp)) {
         Column(Modifier.fillMaxWidth().padding(17.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Text(title, fontWeight = FontWeight.SemiBold)
-            Text(detail, color = Slate, fontSize = 13.sp)
+            Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             Button(onClick = onClick, Modifier.fillMaxWidth(), enabled = !loading) { Text(button) }
         }
     }
@@ -570,14 +582,15 @@ private fun ActionCard(title: String, detail: String, button: String, loading: B
 
 @Composable
 private fun StatusPill(text: String) {
-    Surface(shape = RoundedCornerShape(30.dp), color = Mint) { Text(text, Modifier.padding(horizontal = 10.dp, vertical = 5.dp), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Ink) }
+    GlassBadge(text)
 }
 
 @Composable
 private fun InlineNotice(text: String, isError: Boolean, onDismiss: (() -> Unit)? = null) {
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp), shape = RoundedCornerShape(14.dp), color = if (isError) Color(0xFFFFE7E5) else Mint) {
+    val colors = MaterialTheme.colorScheme
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp), shape = RoundedCornerShape(14.dp), color = if (isError) colors.errorContainer else colors.secondaryContainer) {
         Row(Modifier.padding(horizontal = 13.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(text, Modifier.weight(1f), fontSize = 12.sp, color = if (isError) Color(0xFF8E302A) else Ink)
+            Text(text, Modifier.weight(1f), fontSize = 12.sp, color = if (isError) colors.onErrorContainer else colors.onSecondaryContainer)
             if (onDismiss != null) TextButton(onClick = onDismiss, contentPadding = PaddingValues(start = 8.dp, end = 0.dp)) { Text(stringResource(R.string.dismiss), fontSize = 11.sp) }
         }
     }
@@ -585,12 +598,12 @@ private fun InlineNotice(text: String, isError: Boolean, onDismiss: (() -> Unit)
 
 @Composable
 private fun MoreRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
-    Card(onClick = onClick, shape = RoundedCornerShape(19.dp)) {
+    GlassCard(onClick = onClick, shape = RoundedCornerShape(19.dp)) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(23.dp))
             Spacer(Modifier.width(13.dp))
-            Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold); Text(subtitle, color = Slate, fontSize = 12.sp) }
-            Icon(Icons.Outlined.ChevronRight, null, tint = Slate)
+            Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold); Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) }
+            Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -666,15 +679,18 @@ private fun localizedRole(value: String): String = when (value.uppercase(Locale.
 }
 
 @Composable
-private fun BrandMark() {
-    Box(Modifier.size(70.dp).clip(RoundedCornerShape(23.dp)).background(Ink), contentAlignment = Alignment.Center) {
-        Icon(Icons.Outlined.Church, contentDescription = null, tint = Color(0xFFC5E8D7), modifier = Modifier.size(36.dp))
-    }
+private fun BrandMark(size: Dp = 70.dp) {
+    val shape = RoundedCornerShape(size * 0.23f)
+    Image(
+        painter = painterResource(R.drawable.ic_launcher_art),
+        contentDescription = stringResource(R.string.church_brand),
+        contentScale = ContentScale.Crop,
+        modifier = Modifier.size(size).clip(shape).border(GlassTokens.borderWidth, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f), shape)
+    )
 }
-
 @Composable
 private fun DemoBanner() {
-    Surface(Modifier.fillMaxWidth(), color = Color(0xFFFFF0D7)) {
-        Text(stringResource(R.string.demo_banner), Modifier.padding(horizontal = 14.dp, vertical = 8.dp), color = Color(0xFF6F4A00), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+    Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.tertiaryContainer) {
+        Text(stringResource(R.string.demo_banner), Modifier.padding(horizontal = 14.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onTertiaryContainer, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
     }
 }

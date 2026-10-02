@@ -2,6 +2,8 @@
 
 Native Android application for Christ Mission Fellowship Church (CMF), Setapak, Kuala Lumpur. The current implementation combines Jetpack Compose, Firebase Authentication/Firestore/Cloud Functions/Cloud Storage/FCM, server-owned membership workflows, and an explicitly local-only demo mode. The launcher name **CMF CHURCH APP** and existing premium launcher artwork are preserved.
 
+The Compose interface uses a shared light/dark Glass design system while preserving the existing workflows. See the [Glass UI implementation notes](docs/GLASS_UI_IMPLEMENTATION.md) for design choices, tested screens, and current product limits.
+
 ## Build and preview
 
 Requirements: JDK 17+, Android SDK 35, and internet access for first-time dependency downloads.
