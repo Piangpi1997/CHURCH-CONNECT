@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val firebase = FirebaseApp.initializeApp(applicationContext)
+        if (firebase != null) AppCheckInstaller.install(firebase)
         repository = if (firebase != null) FirebaseChurchRepository() else LocalDemoRepository()
         setContent {
             val vm: ChurchViewModel = viewModel(factory = object : ViewModelProvider.Factory {

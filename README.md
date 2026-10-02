@@ -1,67 +1,41 @@
-# Church Connect — CMF Church
+# CMF Church App
 
-Native Android foundation for Christ Mission Fellowship Church, Setapak, Kuala Lumpur. The project preserves the source brief’s Android + Firebase target: Jetpack Compose app, Firebase Authentication and Firestore, trusted TypeScript Cloud Functions, deny-by-default Firestore/Storage rules, and an Android-visible member/admin workflow.
+Native Android application for Christ Mission Fellowship Church (CMF), Setapak, Kuala Lumpur. The current implementation combines Jetpack Compose, Firebase Authentication/Firestore/Cloud Functions/Cloud Storage/FCM, server-owned membership workflows, and an explicitly local-only demo mode. The launcher name **CMF CHURCH APP** and the existing premium launcher artwork are preserved.
 
-## Run the app
+## Build and preview
 
-Requirements: Android Studio or Android SDK 35, JDK 17 or later, and internet access for the first Gradle dependency download.
+Requirements: JDK 17+, Android SDK 35, and internet access for first-time dependency downloads.
 
 ```bash
 ./gradlew :app:testDebugUnitTest :app:assembleDebug
 ```
 
-Install `app/build/outputs/apk/debug/app-debug.apk` on an Android device/emulator, or use Android Studio to open this folder. If `app/google-services.json` is absent, the app starts in **local demo mode**. Use **Member demo** to create a sample application, then sign out and use **Admin demo** to simulate finance verification and review. Switch back to Member demo to view its result and digital ID. Demo changes are in-memory only, clearly labeled, and never connect to church records or move money.
+The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. Without `app/google-services.json`, the app uses an in-memory local preview; its records are not sent to the church and no money moves. Firebase-backed sign-in requires the church's real Firebase configuration. Emulator/device UI tests require an attached Android emulator or device.
 
-### Connect a Firebase project
+## Firebase and production setup
 
-1. Create/configure a Firebase project and register Android package `org.cmf.churchconnect`. Download its real `google-services.json` into `app/google-services.json`; do not commit that file.
-2. Enable Email/Password Authentication, Firestore, Cloud Functions, Cloud Storage, and Firebase Cloud Messaging. Configure App Check before production release.
-3. Create `churches/cmf-setapak` in Firestore using the shape in `firestore/church-config.example.json`. Fee values are integer minor units (MYR 2000 = RM20.00; 5000 = RM50.00); change them in this document, not in the app. Existing applications keep the fee and configuration version captured at creation.
-4. Set `CHURCH_ID` in `functions/.env` to the same church document ID. Build and deploy Functions and rules from the project root:
+Start with [Environment and Deployment](docs/ENVIRONMENT_AND_DEPLOYMENT.md), [Firebase Setup](docs/FIREBASE_SETUP.md), [Admin and Payment Setup](docs/ADMIN_AND_PAYMENT_SETUP.md), [Database Collections and Indexes](docs/DATABASE_COLLECTIONS.md), [Security Model](docs/SECURITY_MODEL.md), and [Test and Release Guide](docs/TEST_AND_RELEASE.md). The church project ID, Firebase configuration, verified first-admin UID, Play Integrity/App Check console registration, payment-provider contract, and production signing key were not supplied for this task. Never replace them with example or fabricated credentials.
 
-```bash
-cd functions && npm install && npm run build && cd ..
-firebase --project YOUR_FIREBASE_PROJECT_ID deploy --only functions,firestore:rules,firestore:indexes,storage
-```
+Registration fees are server-calculated from `churches/{churchId}.registrationFees` and stored with each payment as an immutable snapshot. The default values in the example configuration are RM20 individual and RM50 family, in integer minor units. The only implemented payment path is **manual offline transfer reference + finance verification**; online payment, gateway callbacks, refunds, and automated reconciliation are **not integrated**.
 
-5. Create the first user account in the app. After verifying the intended person's Firebase Auth UID, bootstrap the initial church administrator from a trusted machine with the correct Application Default Credentials. The script refuses to run without an explicit environment flag and refuses to replace another existing administrator:
+## Automated checks
 
 ```bash
-cd functions
-ALLOW_INITIAL_ADMIN_BOOTSTRAP=YES CHURCH_ID=cmf-setapak ADMIN_UID=THE_VERIFIED_AUTH_UID node scripts/bootstrap-admin.mjs
-```
-
-Do not grant administrative roles by letting a client write its profile. Function role checks read the trusted `users/{uid}` record, and the client rules prohibit changes to role, church, member number, registration, payment, QR and audit data.
-
-### Firebase Emulator
-
-For a local emulator only, copy `app/google-services.example.json` to `app/google-services.json`, install the Firebase CLI, and from the project root run `firebase emulators:start --project demo-church-connect`. Build/run with emulator routing enabled via `-PUSE_FIREBASE_EMULATORS=true` and use the Android Emulator (`10.0.2.2` is configured as its host). For example, run `./gradlew :app:installDebug -PUSE_FIREBASE_EMULATORS=true`. The example JSON/API key is intentionally fake and must never be used for a real Firebase deployment.
-
-## Phase 1 behaviour
-
-- Email/password account creation and sign-in with password reset; profile creation is server-controlled and new profiles always start as `MEMBER`.
-- Individual/family applications, consent and required-field checks, server-calculated configurable fee snapshot, duplicate-active-application prevention, and enforced status transitions.
-- Separate payment records. **Online payment is not integrated.** The included manual-offline flow accepts a transfer reference but never marks it paid from the client. A Finance Admin or church administrator must verify the received funds on the backend; the action records the method and audit trail. Only then can the applicant submit.
-- Admin queue with same-church, trusted-role checks; approve/reject with reason; atomic, server-generated unique member number; in-app status notifications.
-- Digital ID is created only after approval. QR payload is an opaque random token; only its hash is stored. Refreshing an ID replaces and invalidates its previous token. Verification requires authorized church staff and returns only minimal membership details.
-- Church calendar and published announcements; private notification inbox; Cloud Functions include an FCM delivery trigger for registered device tokens.
-- English and Burmese app-name resources are included, but most Compose screen text is currently English. Full Burmese and Tedim interface localization still needs completion and church-language review.
-
-## Checks
-
-```bash
-# Android compile and unit tests
+# Android unit tests and debug APK
 ./gradlew :app:testDebugUnitTest :app:assembleDebug
 
-# Pure backend tests and strict TypeScript compile
-cd functions && npm install && npm test && npm run build
+# Backend unit tests and type-check/build
+(cd functions && npm ci && npm test && npm run build)
 
-# Firestore rules integration tests (requires Java and Firebase Emulator downloads)
-cd security-tests && npm install && npm test
+# Auth + Firestore + Functions Emulator integration tests
+(cd functions && npm run test:integration)
+
+# Firestore + Storage Emulator security tests
+(cd security-tests && npm ci && npm test)
 ```
 
-Security rules are in `firestore/firestore.rules` and `firestore/storage.rules`; composite indexes are in `firestore/firestore.indexes.json`. The rules emulator tests exercise self-approval, forged payment state, role escalation, cross-member and cross-church private reads, forged admin writes, audit tampering and notification ownership.
+The emulator integration test covers server-calculated fees, duplicate registration/reference/submission/review protection, same-church roles, finance verification, concurrent member-number assignment, family records, explicit rejection reasons, and secure QR issuance/rotation. Security tests cover client-write denial, private-data isolation, role escalation, audit logs, QR/lock opacity, announcements/events, and Storage paths/MIME types.
 
-## Deployment and readiness boundary
+## Current completion boundary
 
-This package contains no Firebase project ID/config, production credentials, verified admin UID, deployed backend, App Check attestation, or payment-provider contract. Those must be supplied/configured by the church owner before a connected production rollout. No deploy, privileged account change, live payment, or production submission was performed here. **Payment provider status: NOT INTEGRATED.** The app can be previewed without Firebase, but that preview is not a production backend.
+The server-side critical individual/family flows and emulator rule suites are validated. The optimized release variant builds but is **unsigned**. The app has no live Firebase environment in this workspace, the manual transfer process is not an online payment integration, and full Tedim/Burmese Compose localization, live FCM delivery, and Android UI E2E remain incomplete. See [the Phase 1 audit](docs/PHASE1_FINAL_REPORT.md) for exact PASS/PARTIAL/CONFIGURATION REQUIRED statuses and blockers.

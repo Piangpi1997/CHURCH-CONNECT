@@ -10,8 +10,19 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.functions.FirebaseFunctions
 
 class ChurchMessagingService : FirebaseMessagingService() {
+    override fun onNewToken(token: String) {
+        super.onNewToken(token)
+        if (FirebaseAuth.getInstance().currentUser != null) {
+            FirebaseFunctions.getInstance("asia-southeast1")
+                .getHttpsCallable("registerDeviceToken")
+                .call(mapOf("token" to token))
+        }
+    }
+
     override fun onMessageReceived(message: RemoteMessage) {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -25,7 +36,9 @@ class ChurchMessagingService : FirebaseMessagingService() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(message.notification?.body ?: "You have a new church update."))
             .setAutoCancel(true)
             .build()
-        manager.notify((System.currentTimeMillis() % Int.MAX_VALUE).toInt(), notification)
+        val notificationId = message.data["notificationId"]?.takeIf { it.isNotBlank() }
+        if (notificationId != null) manager.notify(notificationId, 0, notification)
+        else manager.notify((System.currentTimeMillis() % Int.MAX_VALUE).toInt(), notification)
     }
 
     companion object { private const val CHANNEL_ID = "church_updates" }

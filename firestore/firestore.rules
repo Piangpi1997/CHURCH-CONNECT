@@ -27,9 +27,10 @@ service cloud.firestore {
       allow create, delete: if false;
       allow update: if signedIn() && request.auth.uid == userId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName', 'preferredLanguage', 'updatedAt'])
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.churchId == resource.data.churchId
-        && request.resource.data.memberNumber == resource.data.memberNumber;
+        && request.resource.data.get('role', null) == resource.data.get('role', null)
+        && request.resource.data.get('churchId', null) == resource.data.get('churchId', null)
+        && request.resource.data.get('memberNumber', null) == resource.data.get('memberNumber', null)
+        && request.resource.data.get('preferredLanguage', 'en') in ['en', 'my', 'ctd', 'ted'];
       match /devices/{deviceId} { allow read, write: if false; }
     }
 

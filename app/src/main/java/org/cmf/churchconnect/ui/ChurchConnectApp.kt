@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,12 +20,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.cmf.churchconnect.R
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import org.cmf.churchconnect.domain.*
@@ -61,10 +64,10 @@ private fun AuthScreen(state: AppState, vm: ChurchViewModel) {
             item {
                 BrandMark()
                 Spacer(Modifier.height(18.dp))
-                Text("Church Connect", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                Text("Christ Mission Fellowship · Setapak", color = Slate, fontSize = 14.sp)
+                Text(stringResource(R.string.app_name), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text("${stringResource(R.string.church_name)} · ${stringResource(R.string.church_location)}", color = Slate, fontSize = 14.sp)
                 Spacer(Modifier.height(8.dp))
-                Text("One Church • One Community • One Mission", color = Slate, fontSize = 13.sp)
+                Text(stringResource(R.string.tagline), color = Slate, fontSize = 13.sp)
                 Spacer(Modifier.height(28.dp))
             }
             item {
@@ -110,13 +113,13 @@ private fun MainShell(state: AppState, vm: ChurchViewModel, onEnablePush: () -> 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Column { Text("Church Connect", fontWeight = FontWeight.SemiBold, fontSize = 18.sp); Text("CMF · Setapak", fontSize = 11.sp, color = Slate) } },
-                actions = { IconButton(onClick = { vm.refresh() }, enabled = !state.loading) { Icon(Icons.Outlined.Refresh, contentDescription = "Refresh") }; IconButton(onClick = { vm.signOut() }) { Icon(Icons.Outlined.Logout, contentDescription = "Sign out") } }
+                title = { Column { Text(stringResource(R.string.app_name), fontWeight = FontWeight.SemiBold, fontSize = 18.sp); Text(stringResource(R.string.church_name), fontSize = 11.sp, color = Slate) } },
+                actions = { IconButton(onClick = { vm.refresh() }, enabled = !state.loading) { Icon(Icons.Outlined.Refresh, contentDescription = "Refresh") }; IconButton(onClick = { vm.signOut() }) { Icon(Icons.Outlined.Logout, contentDescription = stringResource(R.string.sign_out)) } }
             )
         },
         bottomBar = {
             NavigationBar {
-                listOf(Triple("home", "Home", Icons.Outlined.Home), Triple("membership", "Apply", Icons.Outlined.AssignmentInd), Triple("calendar", "Events", Icons.Outlined.Event), Triple("news", "News", Icons.Outlined.Campaign), Triple("more", "More", Icons.Outlined.MoreHoriz)).forEach { (tab, title, icon) ->
+                listOf(Triple("home", stringResource(R.string.home), Icons.Outlined.Home), Triple("membership", stringResource(R.string.apply), Icons.Outlined.AssignmentInd), Triple("calendar", stringResource(R.string.calendar), Icons.Outlined.Event), Triple("news", stringResource(R.string.news), Icons.Outlined.Campaign), Triple("more", stringResource(R.string.more), Icons.Outlined.MoreHoriz)).forEach { (tab, title, icon) ->
                     NavigationBarItem(selected = actualTab == tab, onClick = { vm.select(tab) }, icon = { Icon(icon, contentDescription = title) }, label = { Text(title) })
                 }
             }
@@ -367,7 +370,7 @@ private fun QrImage(payload: String, modifier: Modifier = Modifier) {
 private fun MoreScreen(state: AppState, onOpen: (String) -> Unit, onEnablePush: () -> Unit) {
     val user = state.user ?: return
     LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { PageHeading("More", "Your account and church tools.") }
+        item { PageHeading(stringResource(R.string.more), stringResource(R.string.account_tools_subtitle)) }
         item {
             Card(shape = RoundedCornerShape(22.dp)) {
                 Row(Modifier.fillMaxWidth().padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -378,7 +381,7 @@ private fun MoreScreen(state: AppState, onOpen: (String) -> Unit, onEnablePush: 
                 }
             }
         }
-        item { MoreRow(Icons.Outlined.Badge, "Digital member ID", "Member number and secure QR") { onOpen("id") } }
+        item { MoreRow(Icons.Outlined.Badge, stringResource(R.string.digital_id_title), "Member number and secure QR") { onOpen("id") } }
         item { MoreRow(Icons.Outlined.Notifications, "Notifications", "${state.notifications.count { !it.read }} unread") { onOpen("notifications") } }
         if (!state.isDemo) item {
             Card(shape = RoundedCornerShape(21.dp)) {
@@ -420,6 +423,11 @@ private fun AdminScreen(state: AppState, vm: ChurchViewModel) {
     var qrText by remember { mutableStateOf("") }
     var rejectId by remember { mutableStateOf<String?>(null) }
     var reason by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf("") }
+    var queueFilter by remember { mutableStateOf(AdminQueueFilter.ALL) }
+    val visibleApplications = remember(state.adminQueue, searchQuery, queueFilter) {
+        AdminQueueFilters.filter(state.adminQueue, searchQuery, queueFilter)
+    }
     if (rejectId != null) AlertDialog(
         onDismissRequest = { rejectId = null; reason = "" },
         title = { Text("Reject application") },
@@ -441,8 +449,29 @@ private fun AdminScreen(state: AppState, vm: ChurchViewModel) {
             }
         }
         item { SectionTitle("Application queue", action = "Refresh", onAction = vm::refreshAdmin) }
-        if (state.adminQueue.isEmpty()) item { EmptyCard("Queue is clear", "New applications and payment references will appear here.") }
-        items(state.adminQueue, key = { it.id }) { app ->
+        item {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Search name, ID, phone, household, or reference") },
+                singleLine = true,
+                trailingIcon = if (searchQuery.isNotBlank()) ({ TextButton(onClick = { searchQuery = "" }) { Text("Clear") } }) else null
+            )
+        }
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(AdminQueueFilter.values().toList(), key = { it.name }) { filter ->
+                    FilterChip(selected = queueFilter == filter, onClick = { queueFilter = filter }, label = { Text(filter.label) })
+                }
+            }
+        }
+        if (state.adminQueue.isEmpty()) item {
+            EmptyCard(if (state.loading) "Loading applications" else "Queue is clear", if (state.loading) "Please wait while the church queue loads." else "New applications and payment references will appear here.")
+        } else if (visibleApplications.isEmpty()) item {
+            EmptyCard("No matching applications", "Change the search or filter to see other applications.")
+        }
+        items(visibleApplications, key = { it.id }) { app ->
             AdminApplicationCard(app, user, state.loading, onBegin = { vm.beginReview(app.id) }, onVerifyPayment = { vm.verifyPayment(app.id, app.paymentReference.orEmpty()) }, onApprove = { vm.review(app.id, true) }, onReject = { rejectId = app.id; reason = "" })
         }
         item { InfoCard("Audit & financial integrity", "Member numbers are generated on the server at approval. Payment references remain unverified until finance staff confirm receipt. Demo approvals are simulation-only.", Icons.Outlined.Policy) }
@@ -451,6 +480,7 @@ private fun AdminScreen(state: AppState, vm: ChurchViewModel) {
 
 @Composable
 private fun AdminApplicationCard(app: MemberApplication, user: UserProfile, loading: Boolean, onBegin: () -> Unit, onVerifyPayment: () -> Unit, onApprove: () -> Unit, onReject: () -> Unit) {
+    var detailsExpanded by remember(app.id) { mutableStateOf(false) }
     Card(shape = RoundedCornerShape(22.dp)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -459,9 +489,14 @@ private fun AdminApplicationCard(app: MemberApplication, user: UserProfile, load
             }
             Text("${app.type} · ${app.phone}", color = Slate, fontSize = 13.sp)
             Text("${app.currency} ${(app.amount / 100)}.${(app.amount % 100).toString().padStart(2, '0')} · ${app.paymentStatus}", fontSize = 13.sp)
-            if (app.address.isNotBlank()) Text(app.address, fontSize = 12.sp, color = Slate, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (app.familyMembers.isNotEmpty()) Text("Household: ${app.familyMembers.joinToString()}", fontSize = 12.sp, color = Slate)
             if (app.paymentReference != null) Text("Transfer ref: ${app.paymentReference}", fontSize = 12.sp, color = Slate)
+            if (app.rejectionReason != null) Text("Rejection reason: ${app.rejectionReason}", fontSize = 12.sp, color = Slate)
+            TextButton(onClick = { detailsExpanded = !detailsExpanded }) { Text(if (detailsExpanded) "Hide details" else "Application details") }
+            if (detailsExpanded) {
+                if (app.phone.isNotBlank()) Text("Phone: ${app.phone}", fontSize = 12.sp, color = Slate)
+                if (app.address.isNotBlank()) Text("Address: ${app.address}", fontSize = 12.sp, color = Slate, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                if (app.familyMembers.isNotEmpty()) Text("Household: ${app.familyMembers.joinToString()}", fontSize = 12.sp, color = Slate)
+            }
             when {
                 user.canVerifyPayments && app.paymentStatus == "PROCESSING" -> Button(onClick = onVerifyPayment, Modifier.fillMaxWidth(), enabled = !loading) { Text("Verify received transfer") }
                 user.canReview && app.status == "SUBMITTED" -> Button(onClick = onBegin, Modifier.fillMaxWidth(), enabled = !loading) { Text("Start review") }

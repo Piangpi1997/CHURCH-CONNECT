@@ -12,4 +12,7 @@
     <string name="my_id">ကျွန်ုပ်၏ ID</string>
     <string name="admin">စီမံခန့်ခွဲသူ</string>
     <string name="sign_out">ထွက်ရန်</string>
+    <string name="more">နောက်ထပ်</string>
+    <string name="account_tools_subtitle">သင့်အကောင့်နှင့် အသင်းတော်ကိရိယာများ</string>
+    <string name="digital_id_title">ဒစ်ဂျစ်တယ် အသင်းဝင် ID</string>
 </resources>

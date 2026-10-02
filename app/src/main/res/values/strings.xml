@@ -12,4 +12,7 @@
     <string name="my_id">My ID</string>
     <string name="admin">Admin</string>
     <string name="sign_out">Sign out</string>
+    <string name="more">More</string>
+    <string name="account_tools_subtitle">Your account and church tools.</string>
+    <string name="digital_id_title">Digital member ID</string>
 </resources>

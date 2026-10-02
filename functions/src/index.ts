@@ -1,9 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
-import { CallableRequest, HttpsError, onCall } from "firebase-functions/v2/https";
+import { CallableRequest, HttpsError, onCall as firebaseOnCall } from "firebase-functions/v2/https";
 import { assertTransition, calculateFee, formatMemberNumber, mayPerformRole, normalizeReference, validateApplication } from "./domain";
 
 initializeApp();
@@ -16,6 +16,8 @@ const qrVerifierRoles = [...financeRoles, "USHER"] as const;
 
 type Request = CallableRequest<any>;
 type Profile = { uid: string; churchId: string; role: string; fullName: string; email?: string; memberNumber?: string };
+const onCall = (options: { region: string }, handler: (request: Request) => any) =>
+  firebaseOnCall({ ...options, enforceAppCheck: process.env.FUNCTIONS_EMULATOR !== "true" }, handler);
 
 function authUid(request: Request): string {
   const uid = request.auth?.uid;
@@ -55,18 +57,34 @@ async function authorized(uid: string, churchId: string, roles: readonly string[
 }
 async function churchConfiguration(churchId: string) {
   const doc = await db.collection("churches").doc(churchId).get();
-  const data = doc.data() || {};
+  if (!doc.exists) throw new HttpsError("failed-precondition", `Church configuration is required for ${churchId}.`);
+  const data = doc.data()!;
   const fees = (data.registrationFees || {}) as Record<string, unknown>;
+  const individualFee = fees.individual;
+  const familyFee = fees.family;
+  const currency = typeof fees.currency === "string" ? fees.currency : data.currency;
+  const feeVersion = fees.version;
+  if (!Number.isSafeInteger(individualFee) || Number(individualFee) < 0 || !Number.isSafeInteger(familyFee) || Number(familyFee) < 0) {
+    throw new HttpsError("failed-precondition", "Church registration fees must be configured as non-negative integer minor units.");
+  }
+  if (typeof currency !== "string" || !/^[A-Z]{3}$/.test(currency)) {
+    throw new HttpsError("failed-precondition", "Church registration currency must be configured as a three-letter ISO code.");
+  }
+  if (!Number.isSafeInteger(feeVersion) || Number(feeVersion) < 1) {
+    throw new HttpsError("failed-precondition", "Church fee configuration version must be a positive integer.");
+  }
+  const prefix = typeof data.memberNumberPrefix === "string" ? data.memberNumberPrefix : "CMF";
+  if (!/^[A-Z0-9-]{1,12}$/.test(prefix)) throw new HttpsError("failed-precondition", "Church member-number prefix is invalid.");
   return {
     name: typeof data.name === "string" ? data.name : "Christ Mission Fellowship Church",
     shortName: typeof data.shortName === "string" ? data.shortName : "CMF Church",
     location: typeof data.location === "string" ? data.location : "Setapak, Kuala Lumpur, Malaysia",
     timezone: typeof data.timezone === "string" ? data.timezone : "Asia/Kuala_Lumpur",
-    currency: typeof fees.currency === "string" ? fees.currency : (typeof data.currency === "string" ? data.currency : "MYR"),
-    individualFee: Number.isSafeInteger(fees.individual) ? Number(fees.individual) : 2000,
-    familyFee: Number.isSafeInteger(fees.family) ? Number(fees.family) : 5000,
-    prefix: typeof data.memberNumberPrefix === "string" ? data.memberNumberPrefix : "CMF",
-    feeVersion: Number.isSafeInteger(fees.version) ? Number(fees.version) : 1,
+    currency,
+    individualFee: Number(individualFee),
+    familyFee: Number(familyFee),
+    prefix,
+    feeVersion: Number(feeVersion),
   };
 }
 async function registrationById(id: unknown) {
@@ -78,6 +96,16 @@ async function registrationById(id: unknown) {
 }
 function registrationBelongsToChurch(data: FirebaseFirestore.DocumentData, churchId: string) {
   if (data.churchId !== churchId) throw new HttpsError("permission-denied", "Cross-church access is not permitted.");
+}
+function assertPaymentMatchesRegistration(registration: FirebaseFirestore.DocumentData, payment: FirebaseFirestore.DocumentData, registrationId: string, paymentId: string) {
+  if (payment.transactionId !== paymentId) throw new HttpsError("failed-precondition", "Payment transaction identity is invalid.");
+  if (payment.registrationId !== registrationId || payment.userId !== registration.userId || payment.churchId !== registration.churchId
+      || payment.amount !== registration.amount || payment.currency !== registration.currency || payment.feeType !== registration.feeType) {
+    throw new HttpsError("failed-precondition", "Payment transaction details do not match this application.");
+  }
+  if (!("transactionId" in payment) || !("providerTransactionId" in payment) || !("verifiedAt" in payment)) {
+    throw new HttpsError("failed-precondition", "Payment transaction record is incomplete.");
+  }
 }
 
 export const getChurchConfig = onCall({ region }, async () => {
@@ -127,8 +155,9 @@ export const createRegistration = onCall({ region }, async (request) => {
       createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
     });
     tx.create(paymentRef, {
-      churchId: owner.churchId, registrationId: registrationRef.id, userId: uid, amount: fee.amount, currency: fee.currency,
-      feeType: fee.feeType, status: "PENDING", provider: "MANUAL_OFFLINE", mode: "MANUAL_OFFLINE",
+      transactionId: paymentRef.id, registrationId: registrationRef.id, userId: uid, churchId: owner.churchId,
+      amount: fee.amount, currency: fee.currency, feeType: fee.feeType,
+      provider: "MANUAL_OFFLINE", providerTransactionId: null, status: "PENDING", mode: "MANUAL_OFFLINE", verifiedAt: null,
       createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
     });
     tx.set(lockRef, { churchId: owner.churchId, userId: uid, registrationId: registrationRef.id, updatedAt: FieldValue.serverTimestamp() });
@@ -148,6 +177,7 @@ export const submitPaymentReference = onCall({ region }, async (request) => {
   await db.runTransaction(async (tx) => {
     const [registration, payment] = await Promise.all([tx.get(ref), tx.get(paymentRef)]);
     if (!registration.exists || registration.get("status") !== "PENDING_PAYMENT" || !payment.exists || payment.get("status") !== "PENDING") throw new HttpsError("failed-precondition", "Payment is no longer awaiting a reference.");
+    assertPaymentMatchesRegistration(registration.data()!, payment.data()!, id, paymentRef.id);
     tx.update(paymentRef, { status: "PROCESSING", paymentReference: reference, updatedAt: FieldValue.serverTimestamp() });
     tx.update(ref, { paymentStatus: "PROCESSING", paymentReference: reference, updatedAt: FieldValue.serverTimestamp() });
     audit(tx, uid, String(data.churchId), "PAYMENT_REFERENCE_SUBMITTED", id, { paymentId: paymentRef.id });
@@ -164,6 +194,7 @@ export const verifyManualPayment = onCall({ region }, async (request) => {
   await db.runTransaction(async (tx) => {
     const [registration, payment] = await Promise.all([tx.get(ref), tx.get(paymentRef)]);
     if (!registration.exists || !payment.exists) throw new HttpsError("not-found", "Application or payment record not found.");
+    assertPaymentMatchesRegistration(registration.data()!, payment.data()!, id, paymentRef.id);
     if (registration.get("status") !== "PENDING_PAYMENT" || payment.get("status") !== "PROCESSING") throw new HttpsError("failed-precondition", "Payment is not awaiting finance verification.");
     if (payment.get("paymentReference") !== suppliedReference) throw new HttpsError("failed-precondition", "The submitted transfer reference does not match.");
     tx.update(paymentRef, { status: "PAID", verifiedBy: uid, verificationMethod: "MANUAL_OFFLINE", verifiedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
@@ -184,6 +215,7 @@ export const submitRegistration = onCall({ region }, async (request) => {
   await db.runTransaction(async (tx) => {
     const [registration, payment] = await Promise.all([tx.get(ref), tx.get(paymentRef)]);
     if (!registration.exists || !payment.exists || registration.get("status") !== "PAYMENT_VERIFIED" || payment.get("status") !== "PAID") throw new HttpsError("failed-precondition", "A verified payment is required before submission.");
+    assertPaymentMatchesRegistration(registration.data()!, payment.data()!, id, paymentRef.id);
     assertTransition("PAYMENT_VERIFIED", "SUBMITTED");
     tx.update(ref, { status: "SUBMITTED", submittedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
     audit(tx, uid, owner.churchId, "REGISTRATION_SUBMITTED", id);
@@ -243,6 +275,7 @@ export const reviewRegistration = onCall({ region }, async (request) => {
   await db.runTransaction(async (tx) => {
     const [registration, payment] = await Promise.all([tx.get(ref), tx.get(paymentRef)]);
     if (!registration.exists || !payment.exists || registration.get("status") !== "UNDER_REVIEW") throw new HttpsError("failed-precondition", "Start the review before deciding.");
+    assertPaymentMatchesRegistration(registration.data()!, payment.data()!, id, paymentRef.id);
     if (decision === "APPROVE") {
       const [counter, member] = await Promise.all([tx.get(counterRef), tx.get(memberRef)]);
       if (payment.get("status") !== "PAID") throw new HttpsError("failed-precondition", "A verified payment is required before approval.");
@@ -327,17 +360,43 @@ export const registerDeviceToken = onCall({ region }, async (request) => {
   return { registered: true };
 });
 
-export const deliverPushNotification = onDocumentCreated({ document: "notifications/{notificationId}", region }, async (event) => {
+export const deliverPushNotification = onDocumentCreated({ document: "notifications/{notificationId}", region, retry: true }, async (event) => {
   const data = event.data?.data();
   if (!data || typeof data.recipientUserId !== "string") return;
   const devices = await db.collection("users").doc(data.recipientUserId).collection("devices").get();
   const tokens = devices.docs.map((doc) => ({ id: doc.id, token: doc.get("token") })).filter((x): x is { id: string; token: string } => typeof x.token === "string");
   if (!tokens.length) return;
-  const result = await getMessaging().sendEachForMulticast({
-    tokens: tokens.map((x) => x.token),
-    notification: { title: String(data.title || "Church Connect"), body: String(data.body || "You have a new church update.") },
-    data: { notificationId: event.params.notificationId, category: String(data.category || "GENERAL"), churchId: String(data.churchId || "") },
-  });
-  const cleanup = result.responses.flatMap((response, index) => response.success ? [] : [tokens[index]]).filter((device) => device && ["messaging/invalid-registration-token", "messaging/registration-token-not-registered"].includes(result.responses[tokens.indexOf(device)]?.error?.code || ""));
-  await Promise.all(cleanup.map((device) => db.collection("users").doc(data.recipientUserId as string).collection("devices").doc(device.id).delete()));
+  const notificationId = event.params.notificationId;
+  const failures: string[] = [];
+  await Promise.all(tokens.map(async (device) => {
+    const deliveryRef = db.collection("notifications").doc(notificationId).collection("pushDeliveries").doc(device.id);
+    const claimed = await db.runTransaction(async (tx) => {
+      const current = await tx.get(deliveryRef);
+      const lease = current.get("leaseUntil") as Timestamp | undefined;
+      if (current.get("status") === "SENT") return false;
+      if (current.get("status") === "IN_PROGRESS" && lease && lease.toMillis() > Date.now()) return false;
+      tx.set(deliveryRef, {
+        status: "IN_PROGRESS", attempts: FieldValue.increment(1),
+        leaseUntil: Timestamp.fromMillis(Date.now() + 120_000), updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return true;
+    });
+    if (!claimed) return;
+    try {
+      const messageId = await getMessaging().send({
+        token: device.token,
+        notification: { title: String(data.title || "Church Connect"), body: String(data.body || "You have a new church update.") },
+        data: { notificationId, category: String(data.category || "GENERAL"), churchId: String(data.churchId || "") },
+        android: { notification: { tag: notificationId } },
+      });
+      await deliveryRef.set({ status: "SENT", messageId, sentAt: FieldValue.serverTimestamp(), leaseUntil: null, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    } catch (error) {
+      const code = typeof error === "object" && error && "code" in error ? String(error.code) : "unknown";
+      await deliveryRef.set({ status: "FAILED", failureCode: code, leaseUntil: null, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      if (["messaging/invalid-registration-token", "messaging/registration-token-not-registered"].includes(code)) {
+        await db.collection("users").doc(data.recipientUserId as string).collection("devices").doc(device.id).delete();
+      } else failures.push(code);
+    }
+  }));
+  if (failures.length) throw new Error(`Push delivery failed for ${failures.length} device(s).`);
 });

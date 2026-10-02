@@ -1,0 +1,4 @@
+<resources>
+    <!-- Tedim (ISO 639-3: ctd) is not yet translated. Base English resources are intentionally used until a church-reviewed translation is supplied. -->
+    <string name="app_name">CMF CHURCH APP</string>
+</resources>

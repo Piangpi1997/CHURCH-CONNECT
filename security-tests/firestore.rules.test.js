@@ -26,11 +26,19 @@ beforeEach(async () => {
     await setDoc(doc(db, 'users/member-b'), { uid: 'member-b', churchId: 'church-a', role: 'MEMBER', fullName: 'Member B' });
     await setDoc(doc(db, 'users/admin-a'), { uid: 'admin-a', churchId: 'church-a', role: 'CHURCH_ADMIN', fullName: 'Admin A' });
     await setDoc(doc(db, 'users/admin-b'), { uid: 'admin-b', churchId: 'church-b', role: 'CHURCH_ADMIN', fullName: 'Admin B' });
+    await setDoc(doc(db, 'users/super-a'), { uid: 'super-a', churchId: 'church-a', role: 'SUPER_ADMIN', fullName: 'Super A' });
     await setDoc(doc(db, 'users/finance-a'), { uid: 'finance-a', churchId: 'church-a', role: 'FINANCE_ADMIN', fullName: 'Finance A' });
     await setDoc(doc(db, 'registrations/reg-a'), { userId: 'member-a', churchId: 'church-a', status: 'SUBMITTED', applicantName: 'Member A' });
     await setDoc(doc(db, 'registrations/reg-b'), { userId: 'member-b', churchId: 'church-a', status: 'SUBMITTED', applicantName: 'Member B' });
     await setDoc(doc(db, 'payments/pay-a'), { userId: 'member-a', churchId: 'church-a', status: 'PENDING', amount: 2000 });
     await setDoc(doc(db, 'auditLogs/log-a'), { actorUid: 'admin-a', churchId: 'church-a', action: 'CREATED' });
+    await setDoc(doc(db, 'auditLogs/log-b'), { actorUid: 'admin-b', churchId: 'church-b', action: 'CREATED' });
+    await setDoc(doc(db, 'members/member-a'), { userId: 'member-a', churchId: 'church-a', name: 'Member A', memberNumber: 'CMF-000001', status: 'ACTIVE' });
+    await setDoc(doc(db, 'members/member-b'), { userId: 'member-b', churchId: 'church-a', name: 'Member B', memberNumber: 'CMF-000002', status: 'ACTIVE' });
+    await setDoc(doc(db, 'qrVerifications/opaque-hash'), { userId: 'member-a', churchId: 'church-a', status: 'ACTIVE' });
+    await setDoc(doc(db, 'registrationLocks/member-a'), { churchId: 'church-a', registrationId: 'reg-a' });
+    await setDoc(doc(db, 'events/event-a'), { churchId: 'church-a', title: 'Published event', published: true });
+    await setDoc(doc(db, 'announcements/news-a'), { churchId: 'church-a', title: 'Published news', published: true });
     await setDoc(doc(db, 'notifications/n-a'), { recipientUserId: 'member-a', churchId: 'church-a', title: 'Private', body: 'Only for A', readAt: null });
     await setDoc(doc(db, 'churches/church-a'), { name: 'Church A', currency: 'MYR' });
   });
@@ -59,6 +67,9 @@ test('finance role can read payments but not member profiles or complete applica
 
 test('client cannot self-approve, change payment state, or elevate role', async () => {
   const db = env.authenticatedContext('member-a').firestore();
+  await assertSucceeds(updateDoc(doc(db, 'users/member-a'), { preferredLanguage: 'ctd' }));
+  await assertFails(updateDoc(doc(db, 'users/member-a'), { churchId: 'church-b' }));
+  await assertFails(updateDoc(doc(db, 'users/member-a'), { memberNumber: 'CMF-999999' }));
   await assertFails(updateDoc(doc(db, 'registrations/reg-a'), { status: 'APPROVED' }));
   await assertFails(updateDoc(doc(db, 'payments/pay-a'), { status: 'PAID' }));
   await assertFails(updateDoc(doc(db, 'users/member-a'), { role: 'CHURCH_ADMIN' }));
@@ -82,4 +93,50 @@ test('public church configuration can be read but never client-written', async (
   const db = env.unauthenticatedContext().firestore();
   await assertSucceeds(getDoc(doc(db, 'churches/church-a')));
   await assertFails(setDoc(doc(db, 'churches/church-a'), { name: 'Attacker' }));
+});
+
+test('member and membership-staff private profile/member access is same-church scoped', async () => {
+  const member = env.authenticatedContext('member-a').firestore();
+  await assertSucceeds(getDoc(doc(member, 'users/member-a')));
+  await assertFails(getDoc(doc(member, 'users/member-b')));
+  await assertSucceeds(getDoc(doc(member, 'members/member-a')));
+  await assertFails(getDoc(doc(member, 'members/member-b')));
+  const admin = env.authenticatedContext('admin-a').firestore();
+  await assertSucceeds(getDoc(doc(admin, 'users/member-b')));
+  await assertSucceeds(getDoc(doc(admin, 'members/member-b')));
+  const otherChurch = env.authenticatedContext('admin-b').firestore();
+  await assertFails(getDoc(doc(otherChurch, 'members/member-a')));
+  await assertFails(getDoc(doc(otherChurch, 'users/member-a')));
+});
+
+test('QR hashes, registration locks, and payment writes are server-only', async () => {
+  const db = env.authenticatedContext('member-a').firestore();
+  await assertFails(getDoc(doc(db, 'qrVerifications/opaque-hash')));
+  await assertFails(getDocs(collection(db, 'qrVerifications')));
+  await assertFails(getDoc(doc(db, 'registrationLocks/member-a')));
+  await assertFails(setDoc(doc(db, 'payments/forged'), { userId: 'member-a', churchId: 'church-a', status: 'PAID' }));
+  await assertFails(updateDoc(doc(db, 'payments/pay-a'), { status: 'PAID' }));
+  await assertFails(setDoc(doc(db, 'registrations/forged'), { userId: 'member-a', churchId: 'church-a', status: 'APPROVED' }));
+});
+
+test('published events and announcements are readable but client writes are denied', async () => {
+  const member = env.authenticatedContext('member-a').firestore();
+  await assertSucceeds(getDoc(doc(member, 'events/event-a')));
+  await assertSucceeds(getDoc(doc(member, 'announcements/news-a')));
+  await assertFails(setDoc(doc(member, 'announcements/forged'), { churchId: 'church-a', published: true }));
+  await assertFails(updateDoc(doc(member, 'announcements/news-a'), { body: 'forged' }));
+  await assertFails(setDoc(doc(member, 'events/forged'), { churchId: 'church-a', published: true }));
+  await assertFails(updateDoc(doc(member, 'events/event-a'), { title: 'forged' }));
+  const admin = env.authenticatedContext('admin-a').firestore();
+  await assertFails(setDoc(doc(admin, 'announcements/admin-forged'), { churchId: 'church-a', published: true }));
+  await assertFails(updateDoc(doc(admin, 'events/event-a'), { title: 'forged' }));
+});
+
+test('audit logs cannot be forged or edited and staff cannot read another church audit trail', async () => {
+  const admin = env.authenticatedContext('admin-a').firestore();
+  await assertFails(getDoc(doc(admin, 'auditLogs/log-b')));
+  await assertFails(updateDoc(doc(admin, 'auditLogs/log-a'), { action: 'TAMPERED' }));
+  await assertFails(setDoc(doc(admin, 'auditLogs/fake'), { churchId: 'church-a', action: 'FORGED' }));
+  const superAdmin = env.authenticatedContext('super-a').firestore();
+  await assertSucceeds(getDoc(doc(superAdmin, 'auditLogs/log-b')));
 });

@@ -5,7 +5,7 @@
   "location": "Setapak, Kuala Lumpur, Malaysia",
   "timezone": "Asia/Kuala_Lumpur",
   "currency": "MYR",
-  "supportedLanguages": ["en", "my", "ted"],
+  "supportedLanguages": ["en", "my", "ctd"],
   "memberNumberPrefix": "CMF",
   "registrationFees": {
     "individual": 2000,

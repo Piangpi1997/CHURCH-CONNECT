@@ -2,10 +2,11 @@
   "name": "church-connect-functions",
   "private": true,
   "engines": { "node": "20" },
-  "main": "lib/index.js",
+  "main": "lib/src/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "tsx --test test/*.test.ts",
+    "test:integration": "npm run build && cd .. && CHURCH_ID=cmf-setapak ./security-tests/node_modules/.bin/firebase emulators:exec --config firebase.json --project demo-church-connect --only auth,firestore,functions \"node --test functions/test/integration.test.mjs\"",
     "emulate": "npm run build && firebase emulators:start --only auth,firestore,functions --project demo-church-connect"
   },
   "dependencies": {

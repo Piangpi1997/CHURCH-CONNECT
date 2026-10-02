@@ -2,20 +2,22 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     function signedIn() { return request.auth != null; }
-    function userDoc() { return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
-    function sameChurch(churchId) { return signedIn() && userDoc().churchId == churchId; }
+    function userPath() { return /databases/(default)/documents/users/$(request.auth.uid); }
+    function hasUser() { return signedIn() && firestore.exists(userPath()); }
+    function userDoc() { return firestore.get(userPath()).data; }
+    function sameChurch(churchId) { return hasUser() && userDoc().churchId == churchId; }
     function staff(churchId) {
       return sameChurch(churchId) && userDoc().role in ['SUPER_ADMIN', 'PASTOR', 'CHURCH_ADMIN', 'FINANCE_ADMIN'];
     }
     function validImage() {
       return request.resource != null
         && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+        && request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp'];
     }
     function validDocument() {
       return request.resource != null
         && request.resource.size < 20 * 1024 * 1024
-        && request.resource.contentType.matches('(application/pdf|image/(jpeg|png|webp))');
+        && request.resource.contentType in ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
     }
 
     match /churches/{churchId}/members/{userId}/profile/{fileName} {
