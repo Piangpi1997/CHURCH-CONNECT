@@ -57,3 +57,13 @@ button:focus-visible{outline:3px solid #16a3ce;outline-offset:3px}
  .hero h1{font-size:36px}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Phase 2.1: mobile layouts also for browsers emulating a wide layout viewport.
+   Pointer + portrait is used as a safety net for embedded mobile Chrome. */
+@media (orientation:portrait) and (pointer:coarse) and (max-width:1100px){
+ .heroGrid,.feature{display:grid;grid-template-columns:minmax(0,1fr)!important}
+ .grid.three{grid-template-columns:minmax(0,1fr)!important}
+ .heroArt{min-height:225px}
+ .sectionHead{text-align:left}
+ .foot{flex-direction:column}
+}
